@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,maximum-scale=1,user-scalable=no">
+<title>调色</title>
+<link rel="stylesheet" href="controls.css">
+<style>
+body{background:var(--bg)}
+
+/* 画面：整张照片 contain 居中 */
+#stage{
+  flex:1;
+  min-height:0;
+  position:relative;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:10px 14px;
+}
+#cv{display:none;max-width:100%;max-height:100%;width:auto;height:auto;box-shadow:0 0 0 1px rgba(20,20,22,.08)}
+#state{
+  position:absolute;
+  inset:0;
+  display:none;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  font-size:13px;
+  color:var(--mut);
+  text-align:center;
+}
+
+/* 次级操作行 */
+#meta{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:0 18px;
+}
+#meta button{
+  font-size:12px;
+  letter-spacing:.04em;
+  color:var(--mut);
+  padding:10px 2px;
+  transition:color .15s;
+}
+#meta button:active{color:var(--fg)}
+
+/* 控制区 */
+#panel{padding:0 18px calc(14px + env(safe-area-inset-bottom))}
+
+@media (prefers-reduced-motion:reduce){#meta button{transition:none}}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <canvas id="cv"></canvas>
+  <div id="state"></div>
+</div>
+
+<div id="meta">
+  <button id="orig" type="button">按住看原图</button>
+  <button id="reset" type="button">复位</button>
+</div>
+
+<div id="panel">
+  <div id="readout">
+    <div id="who"><span id="letter">R</span><span id="cname">红</span></div>
+    <div id="val">100<i>%</i></div>
+  </div>
+
+  <div id="track" role="slider" tabindex="0"
+       aria-label="通道强度" aria-valuemin="0" aria-valuemax="200" aria-valuenow="100"
+       aria-valuetext="100%">
+    <div id="rail"></div>
+    <div id="fill"></div>
+    <div id="tick"></div>
+    <div id="ticks"></div>
+    <div id="knob"></div>
+    <div id="ends"><span>0</span><span class="mid">100</span><span>200</span></div>
+  </div>
+
+  <div id="tabs">
+    <button class="tab on" type="button" data-ch="r"><span class="l">R</span><span class="c">红</span></button>
+    <button class="tab" type="button" data-ch="g"><span class="l">G</span><span class="c">绿</span></button>
+    <button class="tab" type="button" data-ch="b"><span class="l">B</span><span class="c">蓝</span></button>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  var CH = {
+    r: { letter: 'R', name: '红', color: '#E5484D', soft: 'rgba(229,72,77,.14)' },
+    g: { letter: 'G', name: '绿', color: '#2F9E44', soft: 'rgba(47,158,68,.14)' },
+    b: { letter: 'B', name: '蓝', color: '#1F6FEB', soft: 'rgba(31,111,235,.14)' }
+  };
+  var MAX = 1200;      // 交互预览的最长边：够看清，又能让逐像素乘法跟手
+  var v = { r: 100, g: 100, b: 100 };
+  var cur = 'r';
+
+  var cv = document.getElementById('cv');
+  var ctx = cv.getContext('2d', { willReadFrequently: true });
+  var base = null;      // 原样（预览尺寸）
+  var copy = null;      // 乘法结果
+  var pending = false;
+
+  var $ = function (id) { return document.getElementById(id); };
+  var letter = $('letter'), cname = $('cname'), val = $('val');
+  var track = $('track'), fill = $('fill'), knob = $('knob');
+  var tabs = [].slice.call(document.querySelectorAll('.tab'));
+
+  // ------------------------------------------------------------ 取图
+  // 原生塞进 hash 的：p = 缓存原图路径，o = EXIF 旋转角（存图时用的是同一条角度）
+  var query = new URLSearchParams(location.hash.slice(1));
+  var path = query.get('p');
+  var deg = parseInt(query.get('o'), 10) || 0;
+  var rawW = parseInt(query.get('w'), 10) || 0;
+  var rawH = parseInt(query.get('h'), 10) || 0;
+  var src = path || (window.Native ? Native.src() : '');
+  var converted = false;   // 转码重试过就不再转（防循环）
+
+  if (src) {
+    var img = new Image();
+    img.onload = function () {
+      // 转码出来的图已按 EXIF 摆正（deg=0）；原图才走 WebView 是否已摆正的判定
+      start(img, converted ? 0 : (orientationApplied(img) ? 0 : deg));
+    };
+    img.onerror = function () {
+      // 原生 BitmapFactory 认得、Chromium 不认的格式（CMYK JPEG 等）：
+      // 让原生按 100/100/100 重编码一份再喂，EXIF 已烘焙进去
+      if (!converted && window.Native && Native.convert) {
+        var p = Native.convert();
+        if (p) {
+          converted = true;
+          if (Native.log) { Native.log('WebView 解码失败，已转码重试 ' + p); }
+          img.src = p.indexOf('file:') === 0 ? p : 'file://' + p;
+          return;
+        }
+      }
+      if (window.Native && Native.log) {
+        Native.log('图片加载失败(转码后仍失败) src=' + src + ' w=' + rawW + ' h=' + rawH + ' deg=' + deg);
+      }
+      showState('读取照片失败');
+      reportReady();
+    };
+    img.src = src.indexOf('file:') === 0 ? src : 'file://' + src;
+  } else {
+    showState('没有可调色的照片');
+    reportReady();
+  }
+
+  /**
+   * 现代 WebView 解码时会自己按 EXIF 摆正图片（本机 AVD 实测如此），
+   * 老 WebView 不会。拿原生给的原始尺寸一比就知道它摆没摆正：
+   * 摆正了再转一次就转过头了，所以只有「没摆正」时才由我们转。
+   */
+  function orientationApplied(img) {
+    if (!rawW || !rawH) {
+      return true;
+    }
+    if (deg === 90 || deg === 270) {
+      return img.naturalWidth === rawH && img.naturalHeight === rawW;
+    }
+    // 180° 尺寸不变，区分不出来：按现代 WebView 的行为算已摆正
+    return true;
+  }
+
+  function showState(text) {
+    var el = $('state');
+    el.textContent = text;
+    el.style.display = text ? 'flex' : 'none';
+  }
+
+  function reportReady() {
+    if (window.Native) { Native.ready(); }
+  }
+
+  /** 解出来 → 按 EXIF 角度摆正 → 缩到预览尺寸 */
+  function start(img, o) {
+    var w0 = img.naturalWidth, h0 = img.naturalHeight;
+    var scale = Math.min(1, MAX / Math.max(w0, h0));
+    var swap = o === 90 || o === 270;
+    cv.width = Math.round((swap ? h0 : w0) * scale);
+    cv.height = Math.round((swap ? w0 : h0) * scale);
+
+    ctx.save();
+    ctx.scale(scale, scale);
+    // 以原点为轴旋转会把内容甩到负坐标，先平移回来（和原生存图那条矩阵一致）
+    if (o === 90) { ctx.translate(h0, 0); }
+    else if (o === 180) { ctx.translate(w0, h0); }
+    else if (o === 270) { ctx.translate(0, w0); }
+    if (o) { ctx.rotate(o * Math.PI / 180); }
+    ctx.drawImage(img, 0, 0, w0, h0);
+    ctx.restore();
+
+    base = ctx.getImageData(0, 0, cv.width, cv.height);
+    copy = new ImageData(new Uint8ClampedArray(base.data), cv.width, cv.height);
+    cv.style.display = 'block';
+    render();
+    sync();
+    push();
+    reportReady();
+  }
+
+  // ------------------------------------------------------------ 渲染
+  function render() {
+    if (!base) { return; }
+    var s = base.data, d = copy.data;
+    var kr = v.r / 100, kg = v.g / 100, kb = v.b / 100;
+    if (kr === 1 && kg === 1 && kb === 1) {
+      d.set(s);
+    } else {
+      for (var i = 0; i < d.length; i += 4) {
+        d[i] = s[i] * kr;
+        d[i + 1] = s[i + 1] * kg;
+        d[i + 2] = s[i + 2] * kb;
+      }
+    }
+    ctx.putImageData(copy, 0, 0);
+  }
+
+  function scheduleRender() {
+    if (pending) { return; }
+    pending = true;
+    requestAnimationFrame(function () {
+      pending = false;
+      render();
+    });
+  }
+
+  function showOriginal() {
+    if (base) { ctx.putImageData(base, 0, 0); }
+  }
+
+  // ------------------------------------------------------------ 同步原生
+  function push() {
+    if (window.Native) { Native.onValues(v.r, v.g, v.b); }
+  }
+
+  // ------------------------------------------------------------ 界面同步
+  function sync() {
+    var c = CH[cur];
+    document.documentElement.style.setProperty('--ch', c.color);
+    document.documentElement.style.setProperty('--ch-soft', c.soft);
+    letter.textContent = c.letter;
+    cname.textContent = c.name;
+    val.innerHTML = v[cur] + '<i>%</i>';
+
+    tabs.forEach(function (t) {
+      t.classList.toggle('on', t.getAttribute('data-ch') === cur);
+    });
+
+    var x = v[cur] / 2;            // 0..200 → 0..100%
+    knob.style.left = x + '%';
+    fill.style.left = Math.min(50, x) + '%';
+    fill.style.width = Math.abs(x - 50) + '%';
+
+    track.setAttribute('aria-valuenow', v[cur]);
+    track.setAttribute('aria-valuetext', v[cur] + '%');
+  }
+
+  function setChannel(ch) {
+    if (ch === cur) { return; }
+    cur = ch;
+    sync();
+    push();
+    if (navigator.vibrate) { navigator.vibrate(8); }
+  }
+
+  function setValue(n) {
+    // 5% 分度：吸附到最近的一格，只精确到每 5% 一格
+    n = Math.max(0, Math.min(200, Math.round(n / 5) * 5));
+    if (n === v[cur]) { return; }
+    v[cur] = n;
+    sync();
+    scheduleRender();
+    push();
+  }
+
+  // 轨道下的短刻度：0..200 每 5 一根（中点那根由 #tick 主刻度标）
+  (function buildTicks() {
+    var box = document.getElementById('ticks');
+    for (var i = 0; i <= 200; i += 5) {
+      if (i === 100) { continue; }
+      var t = document.createElement('i');
+      t.style.left = (i / 2) + '%';
+      box.appendChild(t);
+    }
+  })();
+
+  // ------------------------------------------------------------ 滑块交互
+  function valueAt(clientX) {
+    var r = track.getBoundingClientRect();
+    return ((clientX - r.left) / r.width) * 200;
+  }
+
+  track.addEventListener('pointerdown', function (e) {
+    track.setPointerCapture(e.pointerId);
+    document.body.classList.add('dragging');
+    track.focus();
+    setValue(valueAt(e.clientX));
+    e.preventDefault();
+  });
+  track.addEventListener('pointermove', function (e) {
+    if (document.body.classList.contains('dragging')) {
+      setValue(valueAt(e.clientX));
+    }
+  });
+  ['pointerup', 'pointercancel'].forEach(function (t) {
+    track.addEventListener(t, function () {
+      document.body.classList.remove('dragging');
+    });
+  });
+  track.addEventListener('keydown', function (e) {
+    var step = e.shiftKey ? 25 : 5;
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') { setValue(v[cur] - step); }
+    else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') { setValue(v[cur] + step); }
+    else if (e.key === 'Home') { setValue(0); }
+    else if (e.key === 'End') { setValue(200); }
+    else { return; }
+    e.preventDefault();
+  });
+
+  // ------------------------------------------------------------ 通道按钮
+  tabs.forEach(function (t) {
+    t.addEventListener('click', function () { setChannel(t.getAttribute('data-ch')); });
+  });
+
+  // ------------------------------------------------------------ 次级操作
+  var orig = $('orig');
+  orig.addEventListener('pointerdown', function (e) {
+    e.preventDefault();
+    showOriginal();
+  });
+  ['pointerup', 'pointercancel', 'pointerleave'].forEach(function (t) {
+    orig.addEventListener(t, function () { scheduleRender(); });
+  });
+
+  $('reset').addEventListener('click', function () {
+    // 只复位当前通道：另外两个正在调的值不丢（和拍摄页口径一致）
+    v[cur] = 100;
+    sync();
+    scheduleRender();
+    push();
+  });
+})();
+</script>
+</body>
+</html>

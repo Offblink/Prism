@@ -1,0 +1,171 @@
+/* Prism 控件共享样式：拍摄模式的实时调色面板与调色模式的编辑器共用一套
+   （读数行 + 统一滑块 + 三个通道按钮），改这里两边同时生效。
+   页面自己的部分（画面区、次级操作行、面板内边距、底色）留在各自的 html 里。 */
+
+/* 单色底 + 三个通道语义色：颜色只在「当前动的那个通道」上出现。
+   --tick/--knob-* 也走变量：相机页要按取景明暗整体反色，编辑页用默认深色值 */
+:root{
+  --bg:#F6F6F7;
+  --fg:#141416;
+  --mut:#6E6E76;
+  --faint:#7A7A82;
+  --line:#DCDCE1;
+  --ch:#E5484D;
+  --ch-soft:rgba(229,72,77,.14);
+  --tick:rgba(20,20,22,.45);
+  --knob-glow:rgba(20,20,22,.30);
+  --knob-ring:rgba(20,20,22,.18);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%}
+body{
+  color:var(--fg);
+  font:14px/1.5 "Noto Sans SC","PingFang SC","Microsoft YaHei",system-ui,-apple-system,sans-serif;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  user-select:none;
+  -webkit-user-select:none;
+  -webkit-tap-highlight-color:transparent;
+  touch-action:none;
+}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+
+/* 读数行：左 = 当前通道，右 = 数值 */
+#readout{
+  display:flex;
+  align-items:baseline;
+  justify-content:space-between;
+  height:48px;
+}
+#who{display:flex;align-items:baseline;gap:9px}
+#letter{
+  font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
+  font-size:22px;
+  font-weight:700;
+  color:var(--ch);
+}
+#cname{font-size:11px;letter-spacing:.26em;color:var(--mut)}
+#val{
+  font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
+  font-size:30px;
+  font-weight:600;
+  line-height:1;
+  letter-spacing:-.01em;
+  font-variant-numeric:tabular-nums;
+}
+#val i{font-style:normal;font-size:14px;color:var(--mut);margin-left:3px}
+
+/* 统一滑块：一条轨道，选中的通道决定填充色；中点=原样 */
+#track{
+  position:relative;
+  height:58px;
+  outline:none;
+  cursor:pointer;
+}
+#rail{
+  position:absolute;
+  left:0;
+  right:0;
+  top:24px;
+  height:4px;
+  border-radius:2px;
+  background:var(--line);
+}
+#fill{
+  position:absolute;
+  top:24px;
+  height:4px;
+  border-radius:2px;
+  background:var(--ch);
+  box-shadow:0 0 16px var(--ch-soft);
+  transition:left .16s ease,width .16s ease;
+}
+#tick{
+  position:absolute;
+  left:50%;
+  top:24px;
+  width:2px;
+  height:14px;
+  margin-left:-1px;
+  margin-top:-5px;
+  border-radius:1px;
+  background:var(--tick);
+}
+/* 5% 分度刻度：贴在轨道下的短刻线（JS 按 0..200 每 5 生成一根，中点由 #tick 主刻度占） */
+#ticks{
+  position:absolute;
+  left:0;
+  right:0;
+  top:31px;
+  height:5px;
+  pointer-events:none;
+}
+#ticks i{
+  position:absolute;
+  top:0;
+  width:1px;
+  height:5px;
+  background:var(--tick);
+  opacity:.5;
+  transform:translateX(-.5px);
+}
+#knob{
+  position:absolute;
+  top:24px;
+  width:3px;
+  height:34px;
+  margin-top:-17px;
+  margin-left:-1.5px;
+  border-radius:2px;
+  background:var(--fg);
+  box-shadow:0 0 12px var(--knob-glow);
+  transition:left .16s cubic-bezier(.2,.7,.3,1);
+}
+body.dragging #knob,body.dragging #fill{transition:none}
+#track:focus-visible #knob{box-shadow:0 0 0 3px var(--knob-ring),0 0 12px var(--knob-glow)}
+#ends{
+  position:absolute;
+  left:0;
+  right:0;
+  bottom:0;
+  display:flex;
+  justify-content:space-between;
+  font-family:ui-monospace,Menlo,Consolas,monospace;
+  font-size:10px;
+  letter-spacing:.1em;
+  color:var(--faint);
+}
+#ends .mid{color:var(--mut)}
+
+/* 三个通道按钮（最底部） */
+#tabs{display:flex;gap:10px;margin-top:12px}
+.tab{
+  flex:1;
+  height:56px;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  gap:1px;
+  border:1px solid var(--line);
+  border-radius:14px;
+  color:var(--mut);
+  transition:color .15s,border-color .15s,background-color .15s;
+}
+.tab .l{
+  font-family:ui-monospace,"Roboto Mono",Menlo,Consolas,monospace;
+  font-size:16px;
+  font-weight:700;
+  letter-spacing:.04em;
+}
+.tab .c{font-size:10px;letter-spacing:.2em;opacity:.85}
+.tab.on{
+  border-color:var(--ch);
+  color:var(--ch);
+  background:var(--ch-soft);
+}
+
+@media (prefers-reduced-motion:reduce){
+  #knob,#fill,.tab{transition:none}
+}

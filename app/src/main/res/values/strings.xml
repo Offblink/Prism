@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Prism</string>
+    <string name="splash_tagline">让世界被看见</string>
+
+    <!-- 拍摄模式 -->
+    <string name="mode_shoot">拍摄</string>
+    <string name="mode_edit">调色</string>
+    <string name="cd_shutter">拍照</string>
+    <string name="cd_gallery">应用相册</string>
+    <string name="camera_permission_title">需要相机权限</string>
+    <string name="camera_permission_body">拍摄模式要用摄像头取景，授权后即可拍照。</string>
+    <string name="camera_permission_grant">去授权</string>
+
+    <!-- 调色模式 -->
+    <string name="editor_back">返回</string>
+    <string name="editor_title">调色</string>
+    <string name="editor_save">保存</string>
+    <string name="editor_saving">保存中…</string>
+    <string name="editor_save_as">另存为新照片</string>
+    <string name="editor_overwrite">覆盖原图</string>
+    <string name="editor_overwritten">已覆盖原图</string>
+    <string name="editor_overwrite_denied">未授权覆盖</string>
+    <string name="editor_saved">已保存到相册</string>
+    <string name="editor_save_failed">保存失败：%1$s</string>
+    <string name="editor_loading">载入照片…</string>
+    <string name="shot_color_failed">调色没加上，已存原片</string>
+
+    <!-- 应用相册 -->
+    <string name="gallery_title">相册</string>
+    <string name="gallery_all">全部</string>
+    <string name="gallery_no_album">(无相册)</string>
+    <string name="gallery_empty">还没有照片，先去拍一张</string>
+    <string name="gallery_need_permission">需要相册权限才能看到照片，点这里授权</string>
+    <string name="gallery_count">%1$d 张</string>
+    <string name="gallery_selected">已选 %1$d</string>
+    <string name="gallery_delete">删除</string>
+    <string name="gallery_delete_title">删除照片？</string>
+    <string name="gallery_delete_message">将删除选中的 %1$d 张照片，此操作无法撤销。</string>
+    <string name="gallery_delete_ok">删除</string>
+    <string name="gallery_delete_cancel">取消</string>
+    <string name="gallery_deleted">已删除</string>
+    <string name="gallery_delete_failed">删除失败</string>
+    <string name="gallery_pick_hint">长按图片进入选择，拖动可连选</string>
+
+    <!-- 日志（长按快门进入） -->
+    <string name="log_title">日志</string>
+    <string name="log_empty">暂无日志。刷新会重新扫描全部照片的可读性。</string>
+    <string name="log_clear">清空</string>
+    <string name="log_copy">复制</string>
+    <string name="log_refresh">刷新</string>
+    <string name="log_copied">已复制</string>
+    <string name="log_cleared">已清空</string>
+    <string name="log_lines">%1$d 行</string>
+</resources>

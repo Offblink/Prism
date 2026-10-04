@@ -1,0 +1,13 @@
+# 本地构建产物
+.gradle/
+build/
+local.properties
+
+# IDE
+.idea/
+*.iml
+.DS_Store
+
+# 构建日志
+build.log
+*.log

@@ -1,0 +1,50 @@
+plugins {
+    alias(libs.plugins.android.application)
+}
+
+android {
+    namespace 'org.offblink.rgbcam'
+    compileSdk {
+        version = release(37)
+    }
+
+    defaultConfig {
+        applicationId "org.offblink.rgbcam"
+        minSdk 26
+        targetSdk 37
+        versionCode 1
+        versionName "1.0"
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+
+    buildTypes {
+        release {
+            // @JavascriptInterface 方法在 R8 优化下需要额外 keep 规则；本应用以调试包为
+            // 主产物，直接关掉优化，省掉一整套混淆配置
+            optimization {
+                enable false
+            }
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+}
+
+dependencies {
+    implementation libs.appcompat
+    implementation libs.activity
+    implementation libs.recyclerview
+    // 拍摄模式：CameraX 预览 + 拍照（后摄、无闪光、无变焦）
+    implementation libs.camera.core
+    implementation libs.camera.camera2
+    implementation libs.camera.lifecycle
+    implementation libs.camera.view
+    // 保存/回显时按 EXIF 方向摆正照片
+    implementation libs.exifinterface
+}

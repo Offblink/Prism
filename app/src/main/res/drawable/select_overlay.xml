@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 选中态：压一层暗 + 深描边。单靠描边在亮照片上会整片糊掉 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <corners android:radius="14dp" />
+            <solid android:color="#4D000000" />
+        </shape>
+    </item>
+    <item
+        android:bottom="3dp"
+        android:left="3dp"
+        android:right="3dp"
+        android:top="3dp">
+        <shape android:shape="rectangle">
+            <corners android:radius="11dp" />
+            <stroke
+                android:width="2dp"
+                android:color="@color/fg" />
+            <solid android:color="#00000000" />
+        </shape>
+    </item>
+</layer-list>
